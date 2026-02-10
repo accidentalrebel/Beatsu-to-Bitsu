@@ -8,9 +8,6 @@ import * as oceanWaves from './scenes/ocean-waves.js'
 import * as lanterns from './scenes/lanterns.js'
 import * as koiPond from './scenes/koi-pond.js'
 
-const canvasA = document.getElementById('canvas-a')
-const canvasB = document.getElementById('canvas-b')
-
 const scenes = [rainWindow, neonCity, starfield, fireflies, aurora, oceanWaves, lanterns, koiPond]
-const manager = new SceneManager(canvasA, canvasB, scenes)
+const manager = new SceneManager(scenes)
 manager.start()

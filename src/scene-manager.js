@@ -4,36 +4,29 @@ const SCENE_DURATION = 60
 const MAX_DT = 0.1
 
 export class SceneManager {
-  constructor(canvasA, canvasB, sceneModules) {
-    this.canvasA = canvasA
-    this.canvasB = canvasB
+  constructor(sceneModules) {
     this.modules = sceneModules
-    this.currentIndex = 0
+    this.currentIndex = -1
     this.elapsed = 0
     this.sceneTime = 0
     this.transitioning = false
+    this.activeCanvas = null
     this.activeScene = null
+    this.nextCanvas = null
     this.nextScene = null
     this.lastTime = 0
     this.raf = null
 
-    this._resizeCanvases()
     window.addEventListener('resize', this._onResize.bind(this))
-
     document.getElementById('skip-btn').addEventListener('click', () => this.skip())
-
-    // Fullscreen on first interaction
-    const goFullscreen = () => {
-      document.documentElement.requestFullscreen?.().catch(() => {})
-      document.removeEventListener('click', goFullscreen)
-      document.removeEventListener('touchstart', goFullscreen)
-    }
-    document.addEventListener('click', goFullscreen)
-    document.addEventListener('touchstart', goFullscreen)
   }
 
-  async start() {
-    this.activeScene = await this._initScene(this.canvasA, this.currentIndex)
+  start() {
+    this.currentIndex = Math.floor(Math.random() * this.modules.length)
+    this.activeCanvas = this._createCanvas()
+    this.activeCanvas.style.opacity = '1'
+    this.activeCanvas.style.zIndex = '1'
+    this.activeScene = this._initScene(this.activeCanvas, this.currentIndex)
     showOverlay(this.modules[this.currentIndex].name)
     this.lastTime = performance.now()
     this._loop(this.lastTime)
@@ -42,6 +35,22 @@ export class SceneManager {
   skip() {
     if (this.transitioning) return
     this._beginTransition()
+  }
+
+  _pickNext() {
+    if (this.modules.length <= 1) return 0
+    let next
+    do {
+      next = Math.floor(Math.random() * this.modules.length)
+    } while (next === this.currentIndex)
+    return next
+  }
+
+  _createCanvas() {
+    const c = document.createElement('canvas')
+    c.className = 'scene-canvas'
+    document.body.appendChild(c)
+    return c
   }
 
   _loop(now) {
@@ -62,66 +71,58 @@ export class SceneManager {
     }
   }
 
-  async _beginTransition() {
+  _beginTransition() {
     if (this.transitioning) return
     this.transitioning = true
 
-    const nextIndex = (this.currentIndex + 1) % this.modules.length
-    this.nextScene = await this._initScene(this.canvasB, nextIndex)
+    const nextIndex = this._pickNext()
+
+    // Fresh canvas avoids WebGL/2D context conflicts
+    const newCanvas = this._createCanvas()
+    newCanvas.style.zIndex = '2'
+    newCanvas.style.opacity = '0'
+    this.nextCanvas = newCanvas
+    this.nextScene = this._initScene(newCanvas, nextIndex)
+    this._nextIndex = nextIndex
 
     showOverlay(this.modules[nextIndex].name)
 
-    this.canvasB.classList.add('visible')
+    // Trigger fade-in on next frame so the transition fires
+    requestAnimationFrame(() => {
+      newCanvas.style.opacity = '1'
+    })
 
     const onEnd = () => {
-      this.canvasB.removeEventListener('transitionend', onEnd)
-      this._finishTransition(nextIndex)
+      newCanvas.removeEventListener('transitionend', onEnd)
+      this._finishTransition()
     }
-    this.canvasB.addEventListener('transitionend', onEnd)
+    newCanvas.addEventListener('transitionend', onEnd)
 
-    // Safety fallback if transitionend doesn't fire
     setTimeout(() => {
       if (this.transitioning) {
-        this.canvasB.removeEventListener('transitionend', onEnd)
-        this._finishTransition(nextIndex)
+        newCanvas.removeEventListener('transitionend', onEnd)
+        this._finishTransition()
       }
     }, 3000)
   }
 
-  _finishTransition(nextIndex) {
+  _finishTransition() {
     if (this.activeScene) this.activeScene.destroy()
+    if (this.activeCanvas) this.activeCanvas.remove()
 
-    const oldA = this.canvasA
-    this.canvasA = this.canvasB
-    this.canvasB = oldA
-
-    // Disable transition during swap to avoid unwanted fades
-    this.canvasA.style.transition = 'none'
-    this.canvasB.style.transition = 'none'
-
-    // Active canvas: behind, fully visible
-    this.canvasA.style.zIndex = '1'
-    this.canvasA.style.opacity = '1'
-    this.canvasA.classList.remove('visible')
-
-    // Next canvas: on top, hidden, ready for crossfade
-    this.canvasB.style.zIndex = '2'
-    this.canvasB.style.opacity = '0'
-    this.canvasB.classList.remove('visible')
-
-    // Re-enable transition after a frame
-    requestAnimationFrame(() => {
-      this.canvasB.style.transition = ''
-    })
-
+    this.activeCanvas = this.nextCanvas
     this.activeScene = this.nextScene
+    this.activeCanvas.style.zIndex = '1'
+    this.currentIndex = this._nextIndex
+
+    this.nextCanvas = null
     this.nextScene = null
-    this.currentIndex = nextIndex
+    this._nextIndex = null
     this.sceneTime = 0
     this.transitioning = false
   }
 
-  async _initScene(canvas, index) {
+  _initScene(canvas, index) {
     const mod = this.modules[index]
     const w = window.innerWidth
     const h = window.innerHeight
@@ -135,8 +136,6 @@ export class SceneManager {
   _resizeCanvases() {
     const w = window.innerWidth
     const h = window.innerHeight
-    // Only resize scenes — they manage their own canvas dimensions
-    // (Three.js scenes use renderer.setSize, Canvas2D scenes set w/h in resize)
     if (this.activeScene) this.activeScene.resize(w, h)
     if (this.nextScene) this.nextScene.resize(w, h)
   }
