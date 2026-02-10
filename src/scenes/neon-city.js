@@ -8,9 +8,11 @@ export const name = 'neon city'
 
 const CHUNK_DEPTH = 120
 const CHUNK_COUNT = 3
-const BUILDINGS_PER_CHUNK = 70
-const GRID_COLS = 10
-const GRID_SPACING = 12
+const ROWS_PER_CHUNK = 8
+const COLS_PER_SIDE = 4
+const STREET_HALF_WIDTH = 8
+const COL_SPACING = 12
+const ROW_SPACING = 14
 const NEON_COLORS = ['#ff2d95', '#ff6eb4', '#4de8e0', '#00fff5', '#ffb347', '#c77dba']
 
 export function init(canvas) {
@@ -56,47 +58,47 @@ export function init(canvas) {
     const group = new THREE.Group()
     group.position.z = zOffset
 
-    for (let i = 0; i < BUILDINGS_PER_CHUNK; i++) {
-      const col = (i % GRID_COLS) - GRID_COLS / 2
-      const row = Math.floor(i / GRID_COLS)
-      const bw = 4 + Math.random() * 5
-      const bh = 5 + Math.random() * 35
-      const bd = 4 + Math.random() * 5
-      const x = col * GRID_SPACING + (Math.random() - 0.5) * 4
-      const z = -row * 14 + (Math.random() - 0.5) * 4
+    // Place buildings on both sides of the street
+    for (let side = -1; side <= 1; side += 2) {
+      for (let row = 0; row < ROWS_PER_CHUNK; row++) {
+        for (let col = 0; col < COLS_PER_SIDE; col++) {
+          const bw = 4 + Math.random() * 5
+          const bh = 5 + Math.random() * 35
+          const bd = 4 + Math.random() * 5
+          const x = side * (STREET_HALF_WIDTH + col * COL_SPACING + bw / 2) + (Math.random() - 0.5) * 2
+          const z = -row * ROW_SPACING + (Math.random() - 0.5) * 4
 
-      // Solid building
-      const mesh = new THREE.Mesh(getBoxGeo(bw, bh, bd), matCache)
-      mesh.position.set(x, bh / 2, z)
-      group.add(mesh)
+          const mesh = new THREE.Mesh(getBoxGeo(bw, bh, bd), matCache)
+          mesh.position.set(x, bh / 2, z)
+          group.add(mesh)
 
-      // Neon edges on some buildings
-      if (Math.random() > 0.4) {
-        const edgeGeo = new THREE.EdgesGeometry(getBoxGeo(bw + 0.1, bh + 0.1, bd + 0.1))
-        const edgeColor = NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)]
-        const edgeMat = new THREE.LineBasicMaterial({ color: edgeColor })
-        const lines = new THREE.LineSegments(edgeGeo, edgeMat)
-        lines.position.copy(mesh.position)
-        group.add(lines)
-      }
+          if (Math.random() > 0.4) {
+            const edgeGeo = new THREE.EdgesGeometry(getBoxGeo(bw + 0.1, bh + 0.1, bd + 0.1))
+            const edgeColor = NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)]
+            const edgeMat = new THREE.LineBasicMaterial({ color: edgeColor })
+            const lines = new THREE.LineSegments(edgeGeo, edgeMat)
+            lines.position.copy(mesh.position)
+            group.add(lines)
+          }
 
-      // Window lights — scattered emissive rectangles
-      if (bh > 15 && Math.random() > 0.5) {
-        const winColor = NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)]
-        const winMat = new THREE.MeshBasicMaterial({ color: winColor })
-        const winCount = Math.floor(2 + Math.random() * 4)
-        for (let j = 0; j < winCount; j++) {
-          const ww = 0.8 + Math.random() * 1.5
-          const wh = 0.5 + Math.random() * 1
-          const side = Math.random() > 0.5 ? 1 : -1
-          const win = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), winMat)
-          win.position.set(
-            x + side * (bw / 2 + 0.05),
-            3 + Math.random() * (bh - 6),
-            z + (Math.random() - 0.5) * bd * 0.6
-          )
-          win.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2
-          group.add(win)
+          // Window lights face inward toward the street
+          if (bh > 15 && Math.random() > 0.5) {
+            const winColor = NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)]
+            const winMat = new THREE.MeshBasicMaterial({ color: winColor })
+            const winCount = Math.floor(2 + Math.random() * 4)
+            for (let j = 0; j < winCount; j++) {
+              const ww = 0.8 + Math.random() * 1.5
+              const wh = 0.5 + Math.random() * 1
+              const win = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), winMat)
+              win.position.set(
+                x - side * (bw / 2 + 0.05),
+                3 + Math.random() * (bh - 6),
+                z + (Math.random() - 0.5) * bd * 0.6
+              )
+              win.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2
+              group.add(win)
+            }
+          }
         }
       }
     }
@@ -117,8 +119,8 @@ export function init(canvas) {
       cameraZ -= 15 * dt
       camera.position.z = cameraZ
       camera.position.y = 8 + Math.sin(elapsed * 0.3) * 1.5
-      camera.position.x = Math.sin(elapsed * 0.15) * 3
-      camera.lookAt(camera.position.x * 0.5, 6, cameraZ - 40)
+      camera.position.x = Math.sin(elapsed * 0.15) * 2
+      camera.lookAt(camera.position.x * 0.3, 6, cameraZ - 40)
 
       // Recycle chunks that fall behind camera
       for (const chunk of chunks) {
