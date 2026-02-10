@@ -8,7 +8,8 @@ import * as oceanWaves from './scenes/ocean-waves.js'
 import * as lanterns from './scenes/lanterns.js'
 import * as koiPond from './scenes/koi-pond.js'
 import * as latentSpace from './scenes/latent-space.js'
+import * as claudesView from './scenes/claudes-view.js'
 
-const scenes = [rainWindow, neonCity, starfield, fireflies, aurora, oceanWaves, lanterns, koiPond, latentSpace]
+const scenes = [rainWindow, neonCity, starfield, fireflies, aurora, oceanWaves, lanterns, koiPond, latentSpace, claudesView]
 const manager = new SceneManager(scenes)
 manager.start()
