@@ -112,9 +112,21 @@ export function init(canvas) {
   }
 
   let cameraZ = 0
+  let contextLost = false
+
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault()
+    contextLost = true
+  }, false)
+
+  canvas.addEventListener('webglcontextrestored', () => {
+    contextLost = false
+  }, false)
 
   return {
     animate(dt, elapsed) {
+      if (contextLost) return
+
       // Camera drift
       cameraZ -= 15 * dt
       camera.position.z = cameraZ
